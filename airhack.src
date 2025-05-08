@@ -1,0 +1,27 @@
+crypto = include_lib("/lib/crypto.so")
+if not crypto then exit("crypto lib not found")
+computer = get_shell.host_computer
+if computer.active_net_card != "WIFI" then exit("No WIFI card active")
+
+crypto.airmon("start", "wlan0")
+i = 0
+wifis = computer.wifi_networks("wlan0")
+
+wifilist = []
+for i in range(0,wifis.len-1) 
+    wifiSplit = wifis[i].split(" ")
+    w = {}
+    w.bssID=wifiSplit[0]
+    w.pwr=wifiSplit[1][:-1].to_int
+    w.essID=wifiSplit[2]
+    crypto.aireplay(w.bssID,w.essID,300000 / (w.pwr + 15))
+    w.pass = crypto.aircrack(home_dir + "/file.cap")
+    wifilist.push(w)
+	print(w.essID + " - " + w.pass)
+	i = i+1
+end for
+s = "ESSID PASS"
+for w in wifilist
+    s = s + "\n" + w.essID + " " +w.pass
+end for
+print(format_columns(s))
