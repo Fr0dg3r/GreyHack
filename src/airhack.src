@@ -25,3 +25,4 @@ for w in wifilist
     s = s + "\n" + w.essID + " " +w.pass
 end for
 print(format_columns(s))
+    

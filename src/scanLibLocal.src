@@ -1,0 +1,68 @@
+mx = include_lib("/lib/metaxploit.so")
+if not mx then include_lib(parent_path(current_path) + "/lib/metaxploit.so")
+
+dbPath = "/home/" + active_user + "/"
+dbName = "exploit_db.txt"
+
+shell = get_shell
+computer = shell.host_computer
+libFolder = computer.File("/lib")
+libFiles = libFolder.get_files
+
+allExploits = {}
+
+for libFile in libFiles
+	if not libFile.name[-3 : ] == ".so" then continue
+	metalib = mx.load(libFile.path)
+	print "scanning lib" + metalib.lib_name + "_" + metalib.version
+	memAreas = mx.scan(metalib)
+	libExploits = []
+	for memArea in memAreas
+		memExploits = mx.scan_address(metalib, memArea)
+		for s in memExploits.split("Unsafe check:")[1 : ]
+			exploit = {}
+			exploit.memAddress = memArea
+
+			if not s.indexOf("<b>") == null and not s.indexOf("</b>") == null then
+				exploit.unsecZone = slice(s, s.indexOf("<b>") + 3, s.indexOf("</b>"))
+			else
+				exploit.unsecZone = "unknown"
+			end if
+
+			exploit.requirements = []
+			for r in s.replace(char(10), "").split("\*")[1 : ]
+				exploit.requirements.push r[1 : ]
+			end for
+			print exploit
+			libExploits.push exploit
+		end for
+	end for
+	key = metalib.lib_name + "_" + metalib.version
+	allExploits[key] = libExploits
+end for
+
+content = ""
+
+for key in allExploits.indexes
+	exploitList = allExploits[key]
+	content = content + "[[" + key + "]]" + char(10)
+
+	for e in exploitList
+		line = e.memAddress + "|" + e.unsecZone
+		for req in e.requirements
+			line = line + "|" + req
+		end for
+		content = content + line + char(10)
+	end for
+end for
+
+// Datei erstellen, wenn sie noch nicht existiert
+file = computer.File(dbPath + dbName)
+if file == null then
+	computer.touch dbPath, dbName
+	file = computer.File(dbPath + dbName)
+end if
+
+file.set_content content
+
+print "Exploit-Datenbank gespeichert unter: " + dbPath + dbName
